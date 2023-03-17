@@ -477,4 +477,21 @@ public final class SolverTypeImplementation implements SolverType {
         return socket;
     }
 
+    @Override
+    public SolverTypeImplementation copy() {
+        return new SolverTypeImplementation(name, info, defaultParams, defaultCommand,
+            versionParameter, minimumSupportedVersion, defaultTimeout, delimiters, translatorClass,
+            handlerNames, handlerOptions, solverSocketClass, preamble);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!o.getClass().equals(SolverTypeImplementation.class)) {
+            return false;
+        }
+        SolverTypeImplementation other = (SolverTypeImplementation) o;
+        // TODO compare other attributes as well
+        return other.name.equals(name);
+    }
+
 }

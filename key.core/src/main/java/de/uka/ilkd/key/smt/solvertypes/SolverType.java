@@ -116,7 +116,7 @@ public interface SolverType {
     long getSolverTimeout();
 
     /**
-     * Set the timeout for processes with this solver type.
+     * Set the timeout for processes with this solver type (in ms)
      *
      * @param timeout the new solver timeout
      */
@@ -200,6 +200,8 @@ public interface SolverType {
      */
     @Nonnull
     AbstractSolverSocket getSocket(ModelExtractor query);
+
+    SolverType copy();
 
 }
 
