@@ -6,6 +6,8 @@ import java.util.Enumeration;
 import java.util.LinkedList;
 
 import javax.annotation.Nonnull;
+import javax.swing.tree.DefaultTreeCellEditor;
+import javax.swing.tree.TreeCellEditor;
 import javax.swing.tree.TreeNode;
 
 import de.uka.ilkd.key.proof.Node;
@@ -14,6 +16,8 @@ import de.uka.ilkd.key.proof.Node;
 public abstract class GUIAbstractTreeNode implements TreeNode {
 
     private GUIProofTreeModel tree;
+
+    private TreeCellEditor editor = null;
 
     // made weak otherwise there are leaks in ExpansionState.map
     // and ProofTreeView.delegateView.lastPathComponent
@@ -129,4 +133,13 @@ public abstract class GUIAbstractTreeNode implements TreeNode {
 
         return nextN;
     }
+
+    public void setCellEditor(TreeCellEditor editor) {
+        this.editor = editor;
+    }
+
+    public TreeCellEditor getCellEditor() {
+        return editor;
+    }
+
 }

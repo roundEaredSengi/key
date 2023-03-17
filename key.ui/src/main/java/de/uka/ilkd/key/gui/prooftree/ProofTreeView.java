@@ -27,7 +27,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
 import javax.swing.*;
+import javax.swing.border.Border;
+import javax.swing.event.CellEditorListener;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.plaf.TreeUI;
@@ -40,6 +43,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.util.List;
 import java.util.*;
+
+import static de.uka.ilkd.key.gui.prooftree.Style.RIGHT_BUTTON;
 
 public class ProofTreeView extends JPanel implements TabPanel {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProofTreeView.class);
@@ -179,9 +184,10 @@ public class ProofTreeView extends JPanel implements TabPanel {
                 }
             }
         };
+        defaultEditor = null;
+        componentEditor = new ProofTreeCellEditor(delegateView, renderer);
         iconHeight = delegateView.getFontMetrics(delegateView.getFont()).getHeight();
         delegateView.setUI(new CacheLessMetalTreeUI());
-
         delegateView.getInputMap(JComponent.WHEN_FOCUSED).getParent()
                 .remove(KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.CTRL_MASK));
         delegateView.getInputMap(JComponent.WHEN_FOCUSED).getParent()
@@ -214,7 +220,31 @@ public class ProofTreeView extends JPanel implements TabPanel {
             public void mouseReleased(MouseEvent e) {
                 mousePressed(e);
             }
+
         };
+
+        /* Start editing tree cells on mouse enter, stop editing them on mouse exit.
+        Assumes that ProofTreeCellEditor is used -> provides access the component returned by
+        ProofRenderer. */
+        delegateView.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                    TreePath tp = delegateView.getPathForLocation(e.getX(), e.getY());
+                    if (tp != null && tp.getLastPathComponent() instanceof GUIAbstractTreeNode) {
+                        GUIAbstractTreeNode node =
+                            (GUIAbstractTreeNode) tp.getLastPathComponent();
+                        CellEditor editor = node.getCellEditor();
+                        delegateView.setEditable(node.getCellEditor() != null);
+                        delegateView.setCellEditor(node.getCellEditor());
+                        if (delegateView.isEditable()) {
+                            delegateView.startEditingAtPath(tp);
+                        }
+                    } else {
+
+                    }
+            }
+
+        });
 
         delegateView.addMouseListener(ml);
 
@@ -287,6 +317,9 @@ public class ProofTreeView extends JPanel implements TabPanel {
 
     private final ProofRenderer renderer = new ProofRenderer();
 
+    private final DefaultTreeCellEditor componentEditor;
+    private final DefaultTreeCellEditor defaultEditor;
+
     public ProofRenderer getRenderer() {
         return renderer;
     }
@@ -297,6 +330,7 @@ public class ProofTreeView extends JPanel implements TabPanel {
     protected void layoutKeYComponent() {
         delegateView.setBackground(Color.white);
         delegateView.setCellRenderer(renderer);
+        //delegateView.setCellEditor(defaultEditor);
         delegateView.putClientProperty("JTree.lineStyle", "Angled");
         delegateView.setVisible(true);
     }
@@ -1084,6 +1118,11 @@ public class ProofTreeView extends JPanel implements TabPanel {
             super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
 
             GUIAbstractTreeNode node = (GUIAbstractTreeNode) value;
+            if(node instanceof GUIBranchNode && node.getNode().parent() != null) {
+                node.setCellEditor(defaultEditor);
+            } else {
+                node.setCellEditor(null);
+            }
             Style style = new Style();
             style.foreground = getForeground();
             style.background = getBackground();
@@ -1094,7 +1133,6 @@ public class ProofTreeView extends JPanel implements TabPanel {
             style.icon = null;
 
             stylers.forEach(it -> it.style(style, node));
-
             setForeground(style.foreground);
             setBackground(style.background);
 
@@ -1111,25 +1149,84 @@ public class ProofTreeView extends JPanel implements TabPanel {
             setText(style.text);
             setIcon(style.icon);
 
-            JPanel panel = new JPanel();
-            panel.setLayout(new BorderLayout());
-            panel.add(this, BorderLayout.WEST);
+            // Set the background-SMT-button to the right of the tree cell, if there is one.
+            // See {@link BackgroundSMTStyler}.
+            JButton right_button = style.get(RIGHT_BUTTON);
+            if (right_button != null) {
+                JPanel panel = new JPanel();
+                panel.setLayout(new BorderLayout());
+                panel.add(this, BorderLayout.WEST);
+                panel.add(right_button, BorderLayout.EAST);
+                panel.getInsets().set(0,0,0,0);
+                panel.setBorder(BorderFactory.createEmptyBorder());
+                node.setCellEditor(componentEditor);
+                return panel;
+            }
 
-            panel.getInsets().set(0,0,0,0);
-            panel.setBorder(BorderFactory.createEmptyBorder());
-            panel.repaint();
-
-            return panel;
+            return this;
         }
     }
 
-    boolean containsScreenPos(Component c, Point p) {
-        Point leftTop = c.getLocation();
-        SwingUtilities.convertPointToScreen(leftTop, c.getParent());
-        int width = c.getBounds().width;
-        int height = 12;
-        Point rightBottom = new Point(leftTop.x + width, leftTop.y + height);
-        return p.x >= leftTop.x /*&& p.x <= rightBottom.x && p.y >= leftTop.y && p.y <= rightBottom.y*/;
+    /**
+     * DefaultTreeCellEditor that just returns the component created by the corresponding
+     * DefaultTreeCellRenderer.
+     */
+    public class ProofTreeCellEditor extends DefaultTreeCellEditor implements TreeCellEditor {
+
+        private DefaultTreeCellRenderer renderer;
+
+        private Object value;
+        private Component component = null;
+
+        private boolean thisEditable = false;
+
+        public ProofTreeCellEditor(JTree tree, DefaultTreeCellRenderer renderer) {
+            super(tree, renderer);
+            this.renderer = renderer;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return value;
+        }
+
+        @Override
+        public Component getTreeCellEditorComponent(JTree jTree, Object value, boolean sel,
+                                                    boolean expanded, boolean leaf, int row) {
+            Component component = renderer.getTreeCellRendererComponent(jTree, value, sel, expanded,
+                    leaf, row, true);
+            this.value = value;
+            return component;
+        }
+
+        @Override
+        public boolean shouldSelectCell(EventObject eventObject) {
+            return false;
+        }
+
+        @Override
+        public void cancelCellEditing() {
+            super.cancelCellEditing();
+        }
+
+        @Override
+        public boolean stopCellEditing() {
+            super.stopCellEditing();
+            return true;
+        }
+
+        @Override
+        public boolean isCellEditable(EventObject event) {
+            return true;
+        }
+
+        @Override
+        public boolean canEditImmediately(EventObject event) {
+            super.canEditImmediately(event);
+            return true;
+        }
+
+
     }
 
 }
