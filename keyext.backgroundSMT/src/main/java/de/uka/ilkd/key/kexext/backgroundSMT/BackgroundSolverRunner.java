@@ -7,7 +7,6 @@ import de.uka.ilkd.key.proof.*;
 import de.uka.ilkd.key.settings.DefaultSMTSettings;
 import de.uka.ilkd.key.settings.ProofIndependentSettings;
 import de.uka.ilkd.key.smt.*;
-import de.uka.ilkd.key.smt.lang.SMTTermBinOp;
 import de.uka.ilkd.key.smt.solvertypes.SolverType;
 import de.uka.ilkd.key.smt.solvertypes.SolverTypes;
 import org.slf4j.Logger;
@@ -44,14 +43,22 @@ public class BackgroundSolverRunner implements SolverLauncherListener, RuleAppLi
         this.mediator.getUI().getProofControl().addAutoModeListener(this);
 
         // TODO set background solverTypes via settings
-        this.solverTypes.addAll(SolverTypes.getSolverTypes());
+        this.solverTypes.addAll(
+            SolverTypes.getSolverTypes().stream().filter(t -> t.getName().equals("Z3")).map(t -> t.copy()).collect(Collectors.toList()));
         // Don't use the counter example generator
         // (generally, using the SMTObjectTranslator causes exceptions during translation)
         solverTypes.remove(SolverTypes.Z3_CE_SOLVER);
 
+    for (SolverType type : solverTypes) {
+            // TODO avoid magic number
+            // set timeout to 1.5 seconds
+            type.setSolverTimeout(1500);
+        }
+
         settings = new DefaultSMTSettings(proof.getSettings().getSMTSettings(),
                 ProofIndependentSettings.DEFAULT_INSTANCE.getSMTSettings(),
                 proof.getSettings().getNewSMTSettings(), proof);
+
     }
 
     /*public Set<SMTProblem> getSolvedProblems() {

@@ -5,27 +5,14 @@ import de.uka.ilkd.key.core.KeYSelectionEvent;
 import de.uka.ilkd.key.core.KeYSelectionListener;
 import de.uka.ilkd.key.gui.MainWindow;
 import de.uka.ilkd.key.gui.extension.api.KeYGuiExtension;
-import de.uka.ilkd.key.gui.extension.api.TabPanel;
-import de.uka.ilkd.key.gui.prooftree.GUIAbstractTreeNode;
-import de.uka.ilkd.key.parser.NotDeclException;
 import de.uka.ilkd.key.proof.Goal;
 import de.uka.ilkd.key.proof.Node;
 import de.uka.ilkd.key.proof.Proof;
-import de.uka.ilkd.key.proof.ProofTreeListener;
-import de.uka.ilkd.key.proof.mgt.ProofEnvironmentEvent;
-import de.uka.ilkd.key.proof.mgt.ProofEnvironmentListener;
 import de.uka.ilkd.key.rule.IBuiltInRuleApp;
 import de.uka.ilkd.key.smt.RuleAppSMT;
-import de.uka.ilkd.key.smt.SMTProblem;
 import de.uka.ilkd.key.smt.SMTSolverResult;
 
-import javax.annotation.Nonnull;
-import javax.swing.*;
-import java.awt.*;
 import java.util.*;
-import java.util.List;
-import java.util.Timer;
-import java.util.stream.Collectors;
 
 @KeYGuiExtension.Info(experimental = false, name = "BackgroundSMT")
 public class BackgroundSMTExtension implements KeYGuiExtension, KeYGuiExtension.Startup, KeYSelectionListener {
