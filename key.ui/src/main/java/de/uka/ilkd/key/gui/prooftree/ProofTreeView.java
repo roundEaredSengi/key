@@ -1106,6 +1106,8 @@ public class ProofTreeView extends JPanel implements TabPanel {
             style.tooltip.addAppliedOn(on);
         }
 
+        private Map<GUIAbstractTreeNode, JPanel> cachedPanels = new HashMap<>();
+
         @Override
         public Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel,
                 boolean expanded, boolean leaf, int row, boolean hasFocus) {
@@ -1133,36 +1135,85 @@ public class ProofTreeView extends JPanel implements TabPanel {
             style.icon = null;
 
             stylers.forEach(it -> it.style(style, node));
+            String tooltip = renderTooltip(style.tooltip);
+
+            // Set the background-SMT-button to the right of the tree cell, if there is one.
+            // See {@link BackgroundSMTStyler}.
+            JButton right_button = style.get(RIGHT_BUTTON);
+            if (right_button != null) {
+                //if (cachedPanels.get(node) == null) {
+                    JPanel panel = new JPanel();
+                    panel.setLayout(new BorderLayout());
+                    JLabel label = new JLabel();
+                    label.setForeground(style.foreground);
+                    label.setBackground(style.background);
+                    panel.setForeground(style.foreground);
+                    panel.setBackground(style.background);
+                    label.setFont(getFont().deriveFont(Font.PLAIN));
+                    label.setToolTipText(tooltip);
+                    if (style.border != null) {
+                        panel.setBorder(BorderFactory.createLineBorder(style.border));
+                    } else {
+                        // set default
+                        panel.setBorder(BorderFactory.createLineBorder(Color.WHITE));
+                    }
+                    label.setText(style.text);
+                    label.setIcon(style.icon);
+                    label.addMouseListener(new MouseListener() {
+
+                        private void handleEvent(MouseEvent e) {
+                            TreePath path = new TreePath(node);
+                            delegateView.setSelectionPath(path);
+                        }
+
+                        @Override
+                        public void mouseClicked(MouseEvent e) {
+                            handleEvent(e);
+                        }
+
+                        @Override
+                        public void mousePressed(MouseEvent e) {
+                            //handleEvent(e);
+                        }
+
+                        @Override
+                        public void mouseReleased(MouseEvent e) {
+                            //handleEvent(e);
+                        }
+
+                        @Override
+                        public void mouseEntered(MouseEvent e) {
+                            //handleEvent(e);
+                        }
+
+                        @Override
+                        public void mouseExited(MouseEvent e) {
+                            //handleEvent(e);
+                        }
+                    });
+                    panel.add(label, BorderLayout.EAST);
+                    panel.add(right_button, BorderLayout.WEST);
+                    panel.getInsets().set(0, 0, 0, 0);
+                    panel.setBorder(BorderFactory.createEmptyBorder());
+                    node.setCellEditor(componentEditor);
+                    cachedPanels.put(node, panel);
+                    return panel;
+
+            }
+
+
             setForeground(style.foreground);
             setBackground(style.background);
-
             if (style.border != null) {
                 setBorder(BorderFactory.createLineBorder(style.border));
             } else {
                 // set default
                 setBorder(BorderFactory.createLineBorder(Color.WHITE));
             }
-
             setFont(getFont().deriveFont(Font.PLAIN));
-            String tooltip = renderTooltip(style.tooltip);
             setToolTipText(tooltip);
             setText(style.text);
             setIcon(style.icon);
-
-            // Set the background-SMT-button to the right of the tree cell, if there is one.
-            // See {@link BackgroundSMTStyler}.
-            JButton right_button = style.get(RIGHT_BUTTON);
-            if (right_button != null) {
-                JPanel panel = new JPanel();
-                panel.setLayout(new BorderLayout());
-                panel.add(this, BorderLayout.WEST);
-                panel.add(right_button, BorderLayout.EAST);
-                panel.getInsets().set(0,0,0,0);
-                panel.setBorder(BorderFactory.createEmptyBorder());
-                node.setCellEditor(componentEditor);
-                return panel;
-            }
-
             return this;
         }
     }
@@ -1175,28 +1226,9 @@ public class ProofTreeView extends JPanel implements TabPanel {
 
         private DefaultTreeCellRenderer renderer;
 
-        private Object value;
-        private Component component = null;
-
-        private boolean thisEditable = false;
-
         public ProofTreeCellEditor(JTree tree, DefaultTreeCellRenderer renderer) {
             super(tree, renderer);
             this.renderer = renderer;
-        }
-
-        @Override
-        public Object getCellEditorValue() {
-            return value;
-        }
-
-        @Override
-        public Component getTreeCellEditorComponent(JTree jTree, Object value, boolean sel,
-                                                    boolean expanded, boolean leaf, int row) {
-            Component component = renderer.getTreeCellRendererComponent(jTree, value, sel, expanded,
-                    leaf, row, true);
-            this.value = value;
-            return component;
         }
 
         @Override
@@ -1205,8 +1237,11 @@ public class ProofTreeView extends JPanel implements TabPanel {
         }
 
         @Override
-        public void cancelCellEditing() {
-            super.cancelCellEditing();
+        public Component getTreeCellEditorComponent(JTree jTree, Object value, boolean sel,
+                                                    boolean expanded, boolean leaf, int row) {
+            Component component = renderer.getTreeCellRendererComponent(jTree, value, sel, expanded,
+                    leaf, row, true);
+            return component;
         }
 
         @Override
