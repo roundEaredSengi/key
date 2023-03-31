@@ -1,15 +1,17 @@
 package de.uka.ilkd.key.gui.settings;
 
 import de.uka.ilkd.key.gui.MainWindow;
+import de.uka.ilkd.key.smt.solvertypes.SolverType;
 
 import javax.swing.*;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
 /**
  * A settings provider is an entry in an {@link SettingsUi}.
  * <p>
- * It will be display within the settings tree by {@link #getDescription()}. Tree children are
+ * It will be displayed within the settings tree by {@link #getDescription()}. Tree children are
  * determined by {@link #getChildren()}. The most important functions are:
  * {@link #applySettings(MainWindow)} and {@link #getPanel(MainWindow)}.
  *
@@ -19,7 +21,7 @@ import java.util.List;
  */
 public interface SettingsProvider {
     /**
-     * A textual human readable description of the settings panel. Used at the overview tree at the
+     * A textual human-readable description of the settings panel. Used at the overview tree at the
      * left.
      *
      * @return non-null non-empty string
@@ -98,4 +100,5 @@ public interface SettingsProvider {
     default int getPriorityOfSettings() {
         return 0;
     }
+
 }

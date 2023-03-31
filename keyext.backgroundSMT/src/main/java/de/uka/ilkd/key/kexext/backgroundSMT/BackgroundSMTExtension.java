@@ -5,33 +5,74 @@ import de.uka.ilkd.key.core.KeYSelectionEvent;
 import de.uka.ilkd.key.core.KeYSelectionListener;
 import de.uka.ilkd.key.gui.MainWindow;
 import de.uka.ilkd.key.gui.extension.api.KeYGuiExtension;
+import de.uka.ilkd.key.gui.fonticons.FontAwesomeSolid;
+import de.uka.ilkd.key.gui.fonticons.IconFactory;
+import de.uka.ilkd.key.gui.fonticons.IconFontProvider;
+import de.uka.ilkd.key.gui.settings.InvalidSettingsInputException;
+import de.uka.ilkd.key.gui.settings.SettingsProvider;
 import de.uka.ilkd.key.proof.Goal;
 import de.uka.ilkd.key.proof.Node;
 import de.uka.ilkd.key.proof.Proof;
 import de.uka.ilkd.key.rule.IBuiltInRuleApp;
 import de.uka.ilkd.key.smt.RuleAppSMT;
 import de.uka.ilkd.key.smt.SMTSolverResult;
+import de.uka.ilkd.key.smt.solvertypes.SolverType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.swing.*;
+import java.awt.event.ActionEvent;
 import java.util.*;
 
 @KeYGuiExtension.Info(experimental = false, name = "BackgroundSMT")
-public class BackgroundSMTExtension implements KeYGuiExtension, KeYGuiExtension.Startup, KeYSelectionListener {
+public class BackgroundSMTExtension implements KeYGuiExtension, KeYGuiExtension.Startup,
+    KeYGuiExtension.Settings, KeYGuiExtension.StatusLine, KeYSelectionListener {
+
+    private static final Icon ICON = IconFactory.get(
+        new IconFontProvider(FontAwesomeSolid.FAST_FORWARD), 12);
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BackgroundSMTExtension.class);
 
     private final Set<BackgroundSolverRunner> runners = new HashSet<>();
+
+    private double timeout;
+    private Collection<SolverType> solvers = new ArrayList<>();
 
     private KeYMediator mediator;
 
     private BackgroundSolverRunner runner;
 
+    private BackgroundSMTStyler styler;
+
+    private JButton statusButton = new JButton();
+
     @Override
     public void init(MainWindow window, KeYMediator mediator) {
-        window.getProofTreeView().getRenderer().add(new BackgroundSMTStyler(this));
+        this.styler = new BackgroundSMTStyler(this);
+        window.getProofTreeView().getRenderer().add(styler);
         this.mediator = mediator;
         mediator.addKeYSelectionListener(this);
+        try {
+            new BackgroundSMTSettingsProvider(this).applySettings(window);
+        } catch (InvalidSettingsInputException e) {
+            LOGGER.warn("Invalid background SMT settings, using defaults.");
+        }
+        statusButton.setAction(new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                new BackgroundSMTStatusWindow().setVisible(true);
+            }
+        });
+        statusButton.setIcon(ICON);
     }
 
     public boolean canApply(Node node) {
-        return runner != null && runner.getCachedResult(node.sequent()).isPresent();
+        Optional<SMTSolverResult> result = runner.getCachedResult(node.sequent());
+        return runner != null
+            && node.childrenCount() == 0
+            && !node.isClosed()
+            && result.isPresent()
+            && result.get().isValid() == SMTSolverResult.ThreeValuedTruth.VALID;
     }
 
     public void setRunner(BackgroundSolverRunner runner) {
@@ -39,6 +80,8 @@ public class BackgroundSMTExtension implements KeYGuiExtension, KeYGuiExtension.
             runnerStatus.put(runner, !runner.getSolvedProblems().isEmpty());
         }*/
         runners.add(runner);
+        runner.setSolvers(solvers);
+        runner.setTimeout(timeout);
         this.runner = runner;
     }
 
@@ -74,6 +117,10 @@ public class BackgroundSMTExtension implements KeYGuiExtension, KeYGuiExtension.
         }
     }
 
+    public void refresh() {
+        MainWindow.getInstance().getProofTreeView().repaint();
+    }
+
     public void applyRunner(Node node) {
         if (runner == null || mediator.getSelectedProof() != runner.getProof() || !runner.getProof().find(node)) {
             return;
@@ -97,4 +144,28 @@ public class BackgroundSMTExtension implements KeYGuiExtension, KeYGuiExtension.
         }
     }
 
+    @Override
+    public SettingsProvider getSettings() {
+        return new BackgroundSMTSettingsProvider(this);
+    }
+
+    public void setTimeout(double timeout) {
+        this.timeout = timeout;
+        for (BackgroundSolverRunner r : runners) {
+            r.setTimeout(timeout);
+        }
+    }
+
+    public void setSolvers(Collection<SolverType> checkedTypes) {
+        this.solvers.clear();
+        this.solvers.addAll(checkedTypes);
+        for (BackgroundSolverRunner r : runners) {
+            r.setSolvers(checkedTypes);
+        }
+    }
+
+    @Override
+    public List<JComponent> getStatusLineComponents() {
+        return List.of(statusButton);
+    }
 }
