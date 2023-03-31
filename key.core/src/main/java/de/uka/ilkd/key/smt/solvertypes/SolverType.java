@@ -201,7 +201,5 @@ public interface SolverType {
     @Nonnull
     AbstractSolverSocket getSocket(ModelExtractor query);
 
-    SolverType copy();
-
 }
 
