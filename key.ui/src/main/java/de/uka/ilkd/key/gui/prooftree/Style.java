@@ -1,12 +1,12 @@
 package de.uka.ilkd.key.gui.prooftree;
 
-import de.uka.ilkd.key.pp.LogicPrinter;
-
+import java.awt.Color;
+import java.util.*;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.swing.*;
-import java.awt.Color;
-import java.util.*;
+
+import de.uka.ilkd.key.pp.LogicPrinter;
 
 /**
  * @author Alexander Weigl

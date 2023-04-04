@@ -1,6 +1,18 @@
 package de.uka.ilkd.key.gui.prooftree;
 
-import bibliothek.gui.dock.common.action.CAction;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
+import java.util.List;
+import javax.annotation.Nonnull;
+import javax.swing.*;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.plaf.TreeUI;
+import javax.swing.plaf.basic.BasicTreeUI;
+import javax.swing.plaf.metal.MetalTreeUI;
+import javax.swing.tree.*;
+
 import de.uka.ilkd.key.control.AutoModeListener;
 import de.uka.ilkd.key.core.KeYMediator;
 import de.uka.ilkd.key.core.KeYSelectionEvent;
@@ -15,37 +27,26 @@ import de.uka.ilkd.key.gui.extension.api.KeYGuiExtension;
 import de.uka.ilkd.key.gui.extension.api.TabPanel;
 import de.uka.ilkd.key.gui.extension.impl.KeYGuiExtensionFacade;
 import de.uka.ilkd.key.gui.fonticons.IconFactory;
-import de.uka.ilkd.key.java.PrettyPrinter;
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.PosInOccurrence;
 import de.uka.ilkd.key.pp.LogicPrinter;
+import de.uka.ilkd.key.pp.PrettyPrinter;
 import de.uka.ilkd.key.proof.*;
 import de.uka.ilkd.key.rule.RuleApp;
+
 import org.key_project.util.collection.ImmutableList;
 import org.key_project.util.collection.ImmutableSLList;
+
+import bibliothek.gui.dock.common.action.CAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.ParametersAreNonnullByDefault;
-import javax.swing.*;
-import javax.swing.border.Border;
-import javax.swing.event.CellEditorListener;
-import javax.swing.event.TreeSelectionEvent;
-import javax.swing.event.TreeSelectionListener;
-import javax.swing.plaf.TreeUI;
-import javax.swing.plaf.basic.BasicTreeUI;
-import javax.swing.plaf.metal.MetalTreeUI;
-import javax.swing.tree.*;
-import java.awt.*;
-import java.awt.event.*;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.List;
-import java.util.*;
-
 import static de.uka.ilkd.key.gui.prooftree.Style.RIGHT_BUTTON;
 
+/**
+ * The proof tree view, showing the nodes of the proof.
+ * Usually shown as a tab in the lower left panel.
+ */
 public class ProofTreeView extends JPanel implements TabPanel {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProofTreeView.class);
 
@@ -71,8 +72,8 @@ public class ProofTreeView extends JPanel implements TabPanel {
 
     private static final long serialVersionUID = 3732875161168302809L;
 
-    // Taclet info can be shown for inner nodes.
-    private boolean showTacletInfo = false;
+    /** Whether to expand oss nodes when using expand all */
+    private boolean expandOSSNodes = false;
 
     /**
      * The JTree that is used for actual display and interaction
@@ -89,10 +90,13 @@ public class ProofTreeView extends JPanel implements TabPanel {
      */
     private KeYMediator mediator;
 
+    /**
+     * Stores for each loaded proof the GUI tree model.
+     */
     private final WeakHashMap<Proof, GUIProofTreeModel> models = new WeakHashMap<>(20);
 
     /**
-     * the proof this view shows
+     * The (currently selected) proof this view shows.
      */
     private Proof proof;
 
@@ -277,12 +281,12 @@ public class ProofTreeView extends JPanel implements TabPanel {
             KeYGuiExtension.KeyboardShortcuts.PROOF_TREE_VIEW);
     }
 
-    public void setShowTacletInfo(boolean value) {
-        showTacletInfo = value;
+    public boolean isExpandOSSNodes() {
+        return expandOSSNodes;
     }
 
-    public boolean getShowTacletInfo() {
-        return showTacletInfo;
+    public void setExpandOSSNodes(boolean expandOSSNodes) {
+        this.expandOSSNodes = expandOSSNodes;
     }
 
     @Override
@@ -404,6 +408,9 @@ public class ProofTreeView extends JPanel implements TabPanel {
      * @param p the Proof that has been loaded
      */
     private void setProof(Proof p) {
+        if (proof == p) {
+            return; // proof is already loaded
+        }
         if (delegateModel != null) {
             expansionState.disconnect();
             delegateModel.setExpansionState(expansionState.copyState());
@@ -621,6 +628,10 @@ public class ProofTreeView extends JPanel implements TabPanel {
         }
 
         final TreePath selectedPath = delegateModel.getSelection();
+        if (selectedPath == null) {
+            return false;
+        }
+
         final TreePath branch;
         final Node invokedNode;
         if (selectedPath.getLastPathComponent() instanceof GUIProofTreeNode) {
@@ -784,8 +795,8 @@ public class ProofTreeView extends JPanel implements TabPanel {
          */
         @Override
         public void autoModeStarted(ProofEvent e) {
-            modifiedSubtrees = ImmutableSLList.<Node>nil();
-            modifiedSubtreesCache = new LinkedHashSet<Node>();
+            modifiedSubtrees = ImmutableSLList.nil();
+            modifiedSubtreesCache = new LinkedHashSet<>();
             if (delegateModel == null) {
                 LOGGER.debug("delegateModel is null");
                 return;
@@ -917,6 +928,9 @@ public class ProofTreeView extends JPanel implements TabPanel {
         return result.toString();
     }
 
+    /**
+     * Renderer responsible for showing a single node of the proof tree.
+     */
     public class ProofRenderer extends DefaultTreeCellRenderer implements TreeCellRenderer {
         private final List<Styler<GUIAbstractTreeNode>> stylers = new LinkedList<>();
 
@@ -1010,6 +1024,9 @@ public class ProofTreeView extends JPanel implements TabPanel {
             if (notes != null) {
                 style.tooltip.addNotes(notes);
             }
+            if (leaf.getNodeInfo().isUselessApplication()) {
+                style.tooltip.addAdditionalInfo("Analysis", "Not required to close proof", false);
+            }
             style.tooltip.setTitle(toolTipText);
         }
 
@@ -1035,6 +1052,8 @@ public class ProofTreeView extends JPanel implements TabPanel {
                 defaultIcon = IconFactory.WINDOW_ICON.get();
             } else if (notes != null) {
                 defaultIcon = IconFactory.editFile(16);
+            } else if (node.getNodeInfo().isUselessApplication()) {
+                defaultIcon = IconFactory.uselessAppLogo(16);
             } else if (node.getNodeInfo().getInteractiveRuleApplication()) {
                 defaultIcon = IconFactory.interactiveAppLogo(16);
             } else if (node.getNodeInfo().getScriptRuleApplication()) {
@@ -1067,13 +1086,9 @@ public class ProofTreeView extends JPanel implements TabPanel {
                 var active = node.getNodeInfo().getActiveStatement();
                 String info = null;
                 if (active != null) {
-                    var writer = new StringWriter();
-                    var printer = new PrettyPrinter(writer);
-                    try {
-                        active.prettyPrint(printer);
-                        info = writer.toString().trim();
-                    } catch (IOException ignored) {
-                    }
+                    PrettyPrinter printer = PrettyPrinter.purePrinter();
+                    printer.print(active);
+                    info = printer.result();
                 }
                 info = info == null ? node.name() : info;
                 style.tooltip.addAdditionalInfo("Active statement",
@@ -1111,7 +1126,7 @@ public class ProofTreeView extends JPanel implements TabPanel {
         @Override
         public Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel,
                 boolean expanded, boolean leaf, int row, boolean hasFocus) {
-            if (proof == null) {
+            if (proof == null || !(value instanceof GUIAbstractTreeNode)) {
                 // print dummy tree
                 return super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row,
                     hasFocus);
