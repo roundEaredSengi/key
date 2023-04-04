@@ -27,7 +27,7 @@ public class BackgroundSMTStyler implements Styler<GUIAbstractTreeNode> {
     public void style(@Nonnull Style current, @Nonnull GUIAbstractTreeNode obj) {
         JButton bsmt_button = current.get(Style.RIGHT_BUTTON);
 
-        if (extension.canApply(obj.getNode())) {
+        if (obj.getChildCount() == 0 && extension.canApply(obj.getNode())) {
             if (bsmt_button == null) {
                 bsmt_button = new JButton(new AbstractAction() {
                     @Override
