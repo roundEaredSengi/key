@@ -17,7 +17,7 @@ import java.util.TimerTask;
 public class BackgroundSMTStyler implements Styler<GUIAbstractTreeNode> {
 
     private static final Icon ICON = IconFactory.get(
-        new IconFontProvider(FontAwesomeSolid.FAST_FORWARD), 12);
+        new IconFontProvider(FontAwesomeSolid.PLAY), 12);
     private final BackgroundSMTExtension extension;
 
     public BackgroundSMTStyler(BackgroundSMTExtension extension) {
